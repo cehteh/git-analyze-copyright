@@ -1,0 +1,45 @@
+
+  git-analyze-copyright -- check and update copyright information
+
+Uses git-blame to determine the author and year edited of each line.
+
+It can check if the year/author appears in an existing copyright
+notice. This feature can be disabled with the '-n' option.
+
+By default missing year/author is reported on stderr. The --append
+option can be used to append noticed to the end of the file (to be
+properly formatted later).
+
+COMMANDS
+
+  -a|--append
+     append missing copyright notices to the end of the file
+
+  -c|--comment
+     define the line comment separator used by the file
+
+  -s|--start
+     regex matching the begin of the copyright notice
+
+  -e|--end
+     regex matching the end of the copyright notice
+
+  -B|--before-start
+     offset to add before the copyright notice start
+
+  -A|--after-end
+     offset to add after the copyright notice end
+
+  -r|--relevant-lines
+     how many line changes are considered relevant
+
+  -p|--relevant-percent
+     how much percent changes are considered relevant
+
+  -n|--no-header
+     don't search for existing copyright header
+
+  --usage|-h
+     show this help
+
+

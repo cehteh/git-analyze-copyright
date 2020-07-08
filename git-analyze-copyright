@@ -1,0 +1,266 @@
+#!/bin/bash
+#
+# Copyright (C)
+#   2010,			Christian Thaeter <ct@pipapo.org>
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, contact Christian Thaeter <ct@pipapo.org>.
+
+
+# find the copyright header and exclude it from the calculations
+COPYRIGHTHEADER_STARTREGEX='Copyright (c)'
+COPYRIGHTHEADER_STARTADJUST='-1'
+
+COPYRIGHTHEADER_ENDREGEX='along with this program.* if not,'
+COPYRIGHTHEADER_ENDADJUST='0'
+
+#TODO: remove endregex have a adjust from the start, sum up copyright year/name notices for that
+#PLANNED: proper inserting/reedit of fixed copyright header
+
+# how much someone has to have contributed per year at least to appear in the copyright list
+MIN_RELEVANT_LINES=10
+MIN_RELEVANT_PERCENT=10
+
+
+function find_copyrightheader()
+{
+    COPYRIGHTHEADER_START=$(grep -i -n -m1 "$COPYRIGHTHEADER_STARTREGEX" "$1" | cut -d: -f1)
+    [[ "$COPYRIGHTHEADER_START" ]] || return 1
+
+    COPYRIGHTHEADER_END=$(grep -i -n -m1 "$COPYRIGHTHEADER_ENDREGEX" "$1" | cut -d: -f1)
+    [[ "$COPYRIGHTHEADER_END" ]] || return 1
+
+    COPYRIGHTHEADER_START=$((COPYRIGHTHEADER_START + COPYRIGHTHEADER_STARTADJUST))
+    COPYRIGHTHEADER_END=$((COPYRIGHTHEADER_END + COPYRIGHTHEADER_ENDADJUST))
+}
+
+
+function msg()
+{
+    echo "$*" >&2
+}
+
+
+function parse_gitblame()
+{
+    local lineno=0
+
+    while IFS='' read -r line; do
+        if [[ "${line:0:1}" = $'\t' ]]; then
+            ((++lineno))
+            if [[ ! (($lineno -ge $COPYRIGHTHEADER_START) && ($lineno -le $COPYRIGHTHEADER_END)) ]]; then
+                # exclude empty lines
+                regex="^[[:space:]]*$"
+                if [[ ! ${line:1} =~ $regex ]]; then
+                    id=ID_${sha}
+                    [[ "${!id}" ]] || eval $id="$identifier"
+
+                    yy=YEAR_${sha}
+                    [[ "${!yy}" ]] || eval $yy="$year"
+
+                    ((++STAT_${!id}_${!yy}))
+
+                    aa=AUTHOR_${!id}
+                    [[ "${!aa}" ]] || eval $aa='$author'
+
+                    ee=EMAIL_${!id}
+                    [[ "${!ee}" ]] || eval $ee='$email'
+                fi
+            else
+                echo "${line:1}" >>"$TMPHEADER"
+            fi
+
+        else
+            cmd="${line%% *}"
+            arg="${line#* }"
+
+            case "$cmd" in
+            author)
+                author="$arg"
+                ;;
+            author-mail)
+                email="$arg"
+                identifier="$(sha1sum <<<$email | cut -d' ' -f1)"
+                ;;
+            author-time)
+                year=$(date -d"@$arg" +%Y)
+                ;;
+            ????????????????????????????????????????)
+                sha="$cmd"
+                ;;
+            esac
+        fi
+    done <$1
+}
+
+
+function escape_regex()
+{
+    local literal="$1"
+
+    literal="${literal//\\/\\\\}"
+    literal="${literal//^/\\^}"
+    literal="${literal//./\\.}"
+    literal="${literal//[/\\[}"
+    literal="${literal//\$/\\\$}"
+    literal="${literal//(/\\(}"
+    literal="${literal//)/\\)}"
+    literal="${literal/|/\\|}"
+    literal="${literal//\*/\\\\*}"
+    literal="${literal//+/\\+}"
+    literal="${literal//\?/\\\?}"
+    literal="${literal//{/\\{}"
+    echo -n "$literal"
+}
+
+
+
+
+function check_header()
+{
+    sum_lines=0
+
+    for var in "${!STAT_@}"; do
+        ((sum_lines += ${!var} ))
+    done
+
+    for var in "${!STAT_@}"; do
+        id="${var%_*}"
+        id="${id#*_}"
+        yy="${var##*_}"
+
+        aa=AUTHOR_${id}
+        aa="${!aa}"
+        ee=EMAIL_${id}
+        ee="${!ee}"
+
+        if [[ ${!var} -ge $MIN_RELEVANT_LINES ||
+              $((${!var} * 100 / sum_lines)) -gt $MIN_RELEVANT_PERCENT ]]; then
+
+            if [[ "${aa}" != UNKNOWN ]]; then
+                regex="$(escape_regex "$yy"),.*$(escape_regex "${aa}").*$(escape_regex "${ee}")"
+
+                if ! grep -q "$regex" "${TMPHEADER:-/dev/null}"; then
+                    msg "author missing: $yy, ${aa} ${ee}; edited ${!var} lines"
+                    echo "$FILE $yy, ${aa} ${ee}; edited ${!var} lines"
+                    if [[ "$APPEND" ]]; then
+                        echo "$COMMENT $yy, ${aa} ${ee}; edited ${!var} lines" >>"$FILE"
+                    fi
+                fi
+            else
+                msg "ignoring UNKNOWN author: $yy, ${ee}; edited ${!var} lines"
+            fi
+        else
+            msg "ignoring small contribution: $yy, ${aa} ${ee}; edited ${!var} lines"
+        fi
+    done
+}
+
+
+APPEND=
+COMMENT=
+DOHEADER=true
+
+#TODO: --all use git-ls-files to apply on all files
+
+while [[ "$1" ]]; do
+    case "$1" in
+    -a|--append) # append missing copyright notices to the end of the file
+        msg append
+        APPEND=true
+        shift
+        ;;
+    -c|--comment) # define the line comment separator used by the file
+        COMMENT="$2"
+        shift 2
+        ;;
+    -s|--start) # regex matching the begin of the copyright notice
+        COPYRIGHTHEADER_STARTREGEX="$2"
+        shift 2
+        ;;
+    -e|--end) # regex matching the end of the copyright notice
+        COPYRIGHTHEADER_ENDREGEX="$2"
+        shift 2
+        ;;
+    -B|--before-start) # offset to add before the copyright notice start
+        COPYRIGHTHEADER_STARTADJUST="-$2"
+        shift 2
+        ;;
+    -A|--after-end) # offset to add after the copyright notice end
+        COPYRIGHTHEADER_ENDADJUST="$2"
+        ;;
+    -r|--relevant-lines) # how many line changes are considered relevant
+        MIN_RELEVANT_LINES="$2"
+        shift 2
+        ;;
+    -p|--relevant-percent) # how much percent changes are considered relevant
+        MIN_RELEVANT_PERCENT="$2"
+        shift 2
+        ;;
+    -n|--no-header) # don't search for existing copyright header
+        DOHEADER=
+        shift
+        ;;
+    --usage|-h) # show this help
+        less <<EOF
+
+  git-analyze-copyright -- check and update copyright information
+
+Uses git-blame to determine the author and year edited of each line.
+
+It can check if the year/author appears in an existing copyright
+notice. This feature can be disabled with the '-n' option.
+
+By default missing year/author is reported on stderr. The --append
+option can be used to append noticed to the end of the file (to be
+properly formatted later).
+
+COMMANDS
+
+$(sed 's/ *\([-|[:alpha:]]*\)[^)]*) *# \(.*\)/  \1\n     \2\n/p;d' < "$0")
+
+
+EOF
+        exit 0
+        ;;
+    *)
+        break
+    esac
+done
+
+
+for FILE in "$@"; do
+  (
+      msg "analyze $FILE"
+
+      DIR="${FILE%/*}"
+      if [[ "$DIR" && -d "$DIR" ]]; then
+          cd "$DIR"
+          FILE="${FILE##*/}"
+      fi
+
+      TMPHEADER=
+      if [[ "$DOHEADER" ]]; then
+          if find_copyrightheader "$FILE"; then
+              TMPHEADER="${TMPDIR:-/tmp}/git-update-copyright.$$.${FILE##*/}"
+          else
+              msg "no copyright header"
+          fi
+      fi
+      parse_gitblame <(git blame -p HEAD -- "$FILE")
+      check_header
+      [[ "$TMPHEADER" && -f "$TMPHEADER" ]] && rm "$TMPHEADER"
+
+      msg
+    )
+done
