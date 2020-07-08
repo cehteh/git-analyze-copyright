@@ -10,7 +10,11 @@ By default missing year/author is reported on stderr. The --append
 option can be used to append notices to the end of the file (to be
 properly formatted later).
 
-COMMANDS
+USAGE
+
+  git analyze-copyright [options..] [files..]
+
+OPTIONS
 
   -a|--append
      append missing copyright notices to the end of the file
