@@ -7,7 +7,7 @@ It can check if the year/author appears in an existing copyright
 notice. This feature can be disabled with the '-n' option.
 
 By default missing year/author is reported on stderr. The --append
-option can be used to append noticed to the end of the file (to be
+option can be used to append notices to the end of the file (to be
 properly formatted later).
 
 COMMANDS
