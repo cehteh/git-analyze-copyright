@@ -33,6 +33,30 @@ MIN_RELEVANT_LINES=10
 MIN_RELEVANT_PERCENT=10
 
 
+function usage()
+{
+    less <<EOF
+
+  git-analyze-copyright -- check and update copyright information
+
+Uses git-blame to determine the author and year edited of each line.
+
+It can check if the year/author appears in an existing copyright
+notice. This feature can be disabled with the '-n' option.
+
+By default missing year/author is reported on stderr. The --append
+option can be used to append notices to the end of the file (to be
+properly formatted later).
+
+COMMANDS
+
+$(sed 's/ *\([-|[:alpha:]]*\)[^)]*) *# \(.*\)/  \1\n     \2\n/p;d' < "$0")
+
+
+EOF
+}
+
+
 function find_copyrightheader()
 {
     COPYRIGHTHEADER_START=$(grep -i -n -m1 "$COPYRIGHTHEADER_STARTREGEX" "$1" | cut -d: -f1)
@@ -213,25 +237,7 @@ while [[ "$1" ]]; do
         shift
         ;;
     --usage|-h) # show this help
-        less <<EOF
-
-  git-analyze-copyright -- check and update copyright information
-
-Uses git-blame to determine the author and year edited of each line.
-
-It can check if the year/author appears in an existing copyright
-notice. This feature can be disabled with the '-n' option.
-
-By default missing year/author is reported on stderr. The --append
-option can be used to append notices to the end of the file (to be
-properly formatted later).
-
-COMMANDS
-
-$(sed 's/ *\([-|[:alpha:]]*\)[^)]*) *# \(.*\)/  \1\n     \2\n/p;d' < "$0")
-
-
-EOF
+        usage
         exit 0
         ;;
     *)
