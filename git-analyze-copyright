@@ -39,7 +39,8 @@ function usage()
 
   git-analyze-copyright -- check and update copyright information
 
-Uses git-blame to determine the author and year edited of each line.
+Uses git-blame to determine the author and year edited of each line
+within the given files.
 
 It can check if the year/author appears in an existing copyright
 notice. This feature can be disabled with the '-n' option.
@@ -183,6 +184,7 @@ function check_header()
                     msg "author missing: $yy, ${aa} ${ee}; edited ${!var} lines"
                     echo "$FILE $yy, ${aa} ${ee}; edited ${!var} lines"
                     if [[ "$APPEND" ]]; then
+                        #TODO: sort
                         echo "$COMMENT $yy, ${aa} ${ee}; edited ${!var} lines" >>"$FILE"
                     fi
                 fi

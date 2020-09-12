@@ -1,7 +1,8 @@
 
   git-analyze-copyright -- check and update copyright information
 
-Uses git-blame to determine the author and year edited of each line.
+Uses git-blame to determine the author and year edited of each line
+within the given files.
 
 It can check if the year/author appears in an existing copyright
 notice. This feature can be disabled with the '-n' option.
