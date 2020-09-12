@@ -20,8 +20,17 @@ OPTIONS
   -a|--append
      append missing copyright notices to the end of the file
 
-  -c|--comment
-     define the line comment separator used by the file
+  -c|--columns
+     line width for formatting
+
+  -f|--format
+     format string for the copyright lines
+
+  
+     replaces %FILE %YEAR %AUTHOR %EMAIL and %LINES
+
+  
+     %HFILL justifies to --columns
 
   -s|--start
      regex matching the begin of the copyright notice

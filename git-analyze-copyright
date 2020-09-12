@@ -32,6 +32,8 @@ COPYRIGHTHEADER_ENDADJUST='0'
 MIN_RELEVANT_LINES=10
 MIN_RELEVANT_PERCENT=10
 
+COLUMNS=80
+FORMAT="%YEAR, %HFILL%AUTHOR %EMAIL; edited %LINES lines"
 
 function usage()
 {
@@ -62,6 +64,12 @@ EOF
 }
 
 
+function msg()
+{
+    echo "$*" >&2
+}
+
+
 function find_copyrightheader()
 {
     COPYRIGHTHEADER_START=$(grep -i -n -m1 "$COPYRIGHTHEADER_STARTREGEX" "$1" | cut -d: -f1)
@@ -75,10 +83,26 @@ function find_copyrightheader()
 }
 
 
-function msg()
+function format_line()
 {
-    echo "$*" >&2
+    output="$1"
+
+    output="${output/\%FILE/$FILE}"
+    output="${output/\%YEAR/$yy}"
+    output="${output/\%AUTHOR/$aa}"
+    output="${output/\%EMAIL/$ee}"
+    output="${output/\%LINES/${!var}}"
+
+    local spaces="                    "
+    spaces="$spaces$spaces"
+    spaces="$spaces$spaces"
+    spaces="$spaces$spaces"
+    spaces="$spaces$spaces"
+    output="${output/\%HFILL/${spaces:0:$((COLUMNS - ${#output} + 6))}}"
+
+    echo "$output"
 }
+
 
 function mailmap_author()
 {
@@ -86,11 +110,13 @@ function mailmap_author()
     echo "${result% <*}"
 }
 
+
 function mailmap_email()
 {
     local result=$(git check-mailmap "$*")
     echo "<${result#* <}"
 }
+
 
 function parse_gitblame()
 {
@@ -191,14 +217,13 @@ function check_header()
               $((${!var} * 100 / sum_lines)) -gt $MIN_RELEVANT_PERCENT ]]; then
 
             if [[ "${aa}" != UNKNOWN ]]; then
-                regex="$(escape_regex "$yy"),.*$(escape_regex "${aa}").*$(escape_regex "${ee}")"
+                regex="$(escape_regex "$yy"),?.*$(escape_regex "${aa}").*$(escape_regex "${ee}")"
 
                 if ! grep -q "$regex" "${TMPHEADER:-/dev/null}"; then
-                    msg "author missing: $yy, ${aa} ${ee}; edited ${!var} lines"
-                    echo "$FILE $yy, ${aa} ${ee}; edited ${!var} lines"
+                    format_line "$FORMAT"
                     if [[ "$APPEND" ]]; then
-                        #TODO: sort
-                        echo "$COMMENT $yy, ${aa} ${ee}; edited ${!var} lines" >>"$FILE"
+                        #TODO: sort, edit inplace
+                        format_line "$FORMAT" >>"$FILE"
                     fi
                 fi
             else
@@ -212,7 +237,6 @@ function check_header()
 
 
 APPEND=
-COMMENT=
 DOHEADER=true
 
 #TODO: --all use git-ls-files to apply on all files
@@ -224,8 +248,14 @@ while [[ "$1" ]]; do
         APPEND=true
         shift
         ;;
-    -c|--comment) # define the line comment separator used by the file
-        COMMENT="$2"
+    -c|--columns) # line width for formatting
+        COLUMNS="$2"
+        shift 2
+        ;;
+    -f|--format) # format string for the copyright lines
+        # ) # replaces %FILE %YEAR %AUTHOR %EMAIL and %LINES
+        # ) # %HFILL justifies to --columns
+        FORMAT="$2"
         shift 2
         ;;
     -s|--start) # regex matching the begin of the copyright notice
