@@ -80,6 +80,17 @@ function msg()
     echo "$*" >&2
 }
 
+function mailmap_author()
+{
+    local result=$(git check-mailmap "$*")
+    echo "${result% <*}"
+}
+
+function mailmap_email()
+{
+    local result=$(git check-mailmap "$*")
+    echo "<${result#* <}"
+}
 
 function parse_gitblame()
 {
@@ -116,10 +127,12 @@ function parse_gitblame()
 
             case "$cmd" in
             author)
-                author="$arg"
+                author_raw="$arg"
                 ;;
             author-mail)
-                email="$arg"
+                email_raw="$arg"
+                author=$(mailmap_author "$author_raw $arg")
+                email=$(mailmap_email "$author_raw $arg")
                 identifier="$(sha1sum <<<$email | cut -d' ' -f1)"
                 ;;
             author-time)
